@@ -47,6 +47,10 @@ jobs:
           cd warpgate-web
           npm ci
           npm run build
+      - name: Migration test
+        continue-on-error: true
+        run: |
+          for i in 1 2 3; do cargo test --all-features -p warpgate-db-migrations --lib sqlite_migrations_run_through_a_pool 2>&1 | tee -a evidence/migrations.log; [ "${PIPESTATUS[0]}" = 0 ] || exit 1; done
       - name: Build warpgate.exe
         run: cargo build -p warpgate --all-features 2>&1 | tee evidence/build.log; exit ${PIPESTATUS[0]}
       - name: Install, run and use it
