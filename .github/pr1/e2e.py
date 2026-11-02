@@ -164,7 +164,10 @@ def ssh_through(http, ssh):
     if not check("create the SSH target", r.status_code == 201, f"{r.status_code} {r.text[:300]}"):
         return
     target = r.json()["id"]
-    role = next(x["id"] for x in s.get(f"{api}/roles", timeout=20).json() if x["name"] == "warpgate:admin")
+    admin = next(x["id"] for x in s.get(f"{api}/users", timeout=20).json() if x["username"] == "admin")
+    roles = s.get(f"{api}/users/{admin}/roles", timeout=20).json()
+    print("admin's roles:", [x["name"] for x in roles], flush=True)
+    role = roles[0]["id"]
     r = s.post(f"{api}/targets/{target}/roles/{role}", timeout=20)
     if not check("give the admin role the target", r.status_code in (200, 201), r.status_code):
         return
