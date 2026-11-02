@@ -1,0 +1,42 @@
+# Test branch only: how often does the upstream test registered_peer_matches_live_pins_of_other_nodes_only fail?
+name: PR 1 flake check
+
+on:
+  push:
+    branches: [ci/windows-pr1-flake]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  T: cluster::tests::registered_peer_matches_live_pins_of_other_nodes_only
+
+jobs:
+  windows-pr1:
+    runs-on: windows-2025
+    timeout-minutes: 120
+    env:
+      OPENSSL_SRC_PERL: C:\Strawberry\perl\bin\perl.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - run: .github/pr1/flake.sh
+  linux-upstream-main:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: warp-tech/warpgate
+          ref: c47c2582
+          path: up
+          submodules: recursive
+      - run: cd up && ../.github/pr1/flake.sh
