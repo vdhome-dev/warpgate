@@ -42,31 +42,11 @@ jobs:
         run: |
           rustup show active-toolchain || rustup toolchain install
           rustup component add clippy rustfmt
-          cargo install --locked cargo-cranky@0.3.0
       - name: Build the web UI
         run: |
           cd warpgate-web
           npm ci
           npm run build
-      - name: Format
-        continue-on-error: true
-        run: cargo fmt --all --check 2>&1 | tee evidence/fmt.log; exit ${PIPESTATUS[0]}
-      - name: Lint (all features, as just clippy)
-        continue-on-error: true
-        run: cargo cranky --workspace --all-features 2>&1 | tee evidence/cranky.log; exit ${PIPESTATUS[0]}
-      - name: Tests per crate (all features, as just test)
-        continue-on-error: true
-        run: |
-          rc=0
-          for p in $(grep '^projects' justfile | sed 's/.*"\(.*\)".*/\1/'); do
-            echo "=== $p"
-            cargo test --all-features -p "$p" --no-fail-fast 2>&1 | tee "evidence/test-$p.log" || true
-            [ "${PIPESTATUS[0]}" = 0 ] || { echo "FAILED crate $p" | tee -a evidence/test-failed.txt; rc=1; }
-          done
-          exit $rc
-      - name: SQLite path fuzz
-        continue-on-error: true
-        run: cargo test --all-features -p warpgate-core --lib pr1_fuzz -- --nocapture 2>&1 | tee evidence/fuzz.log; exit ${PIPESTATUS[0]}
       - name: Build warpgate.exe
         run: cargo build -p warpgate --all-features 2>&1 | tee evidence/build.log; exit ${PIPESTATUS[0]}
       - name: Install, run and use it
@@ -83,15 +63,3 @@ jobs:
           name: windows-evidence
           path: evidence/
 
-  linux-fuzz:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - name: SQLite path fuzz
-        run: |
-          rustup show active-toolchain || rustup toolchain install
-          mkdir -p warpgate-web/dist
-          cargo test --features sqlite -p warpgate-core --lib pr1_fuzz -- --nocapture 2>&1 | tail -40

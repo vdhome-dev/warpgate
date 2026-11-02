@@ -119,7 +119,7 @@ def sshd_up():
     r = subprocess.run(["pwsh", "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=600)
     if r.returncode:
         return r.stderr[-300:]
-    r = subprocess.run(["net", "user", "wge2e", TARGET_PASSWORD, "/add"], capture_output=True, text=True)
+    r = subprocess.run(["net", "user", "wge2e", TARGET_PASSWORD, "/add", "/Y"], capture_output=True, text=True)
     return None if r.returncode == 0 else r.stderr[-300:]
 
 
