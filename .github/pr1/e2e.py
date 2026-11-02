@@ -115,7 +115,10 @@ def install_case(label, data, http, ssh):
 
 def sshd_up():
     script = ("if (-not (Get-Service sshd -ErrorAction SilentlyContinue)) "
-              "{ Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null }; Start-Service sshd")
+              "{ Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0 | Out-Null }; Start-Service sshd; "
+              "$c = \"$env:ProgramData\ssh\sshd_config\"; "  # the first value wins
+              "Set-Content $c ((@('PasswordAuthentication yes') + (Get-Content $c)) -join \"`n\"); "
+              "Restart-Service sshd")
     r = subprocess.run(["pwsh", "-NoProfile", "-Command", script], capture_output=True, text=True, timeout=600)
     if r.returncode:
         return r.stderr[-300:]
@@ -140,6 +143,11 @@ def ssh_through(http, ssh):
     problem = sshd_up()
     if not check("the machine's own sshd is up", problem is None, problem):
         return
+    r = subprocess.run(["pwsh", "-NoProfile", "-Command",
+                        "Select-String -Path $env:ProgramData\ssh\sshd_config -Pattern '^[^#]'; net user wge2e; "
+                        "Get-WinEvent -LogName OpenSSH/Operational -MaxEvents 15 | Format-List Message"],
+                       capture_output=True, text=True)
+    (EVIDENCE / "sshd.txt").write_text(r.stdout + r.stderr, encoding="utf-8")
     direct = ssh_client(22, "wge2e", TARGET_PASSWORD)
     check("the target works directly", "wge2e" in run_output(direct, "whoami"))
     direct.close()
