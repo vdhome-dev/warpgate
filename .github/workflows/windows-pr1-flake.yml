@@ -16,6 +16,7 @@ env:
 
 jobs:
   windows-pr1:
+    if: false # already running in the first run on this branch
     runs-on: windows-2025
     timeout-minutes: 120
     env:
@@ -36,7 +37,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           repository: warp-tech/warpgate
-          ref: c47c2582
+          ref: c47c2582870e09ed64e9dcf57b50a665c5c7e710
           path: up
           submodules: recursive
       - run: cd up && ../.github/pr1/flake.sh
