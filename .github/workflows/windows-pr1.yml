@@ -1,0 +1,97 @@
+# Test branch only, never part of PR 1: everything on a fresh Windows runner.
+name: Windows PR 1 full test
+
+on:
+  push:
+    branches: [ci/windows-pr1-fulltest]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_PROFILE_DEV_DEBUG: "0"
+  CARGO_PROFILE_TEST_DEBUG: "0"
+  WG_FUZZ_ITERS: "200000"
+
+jobs:
+  windows:
+    runs-on: windows-2025
+    timeout-minutes: 350
+    env:
+      OPENSSL_SRC_PERL: C:\Strawberry\perl\bin\perl.exe
+      npm_config_script_shell: C:\Program Files\Git\bin\bash.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Machine
+        run: |
+          mkdir -p evidence
+          { systeminfo | grep -E '^OS (Name|Version)'; df -h /c; rustup show; } 2>&1 | tee evidence/machine.txt
+      - name: Toolchain and tools
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          rustup component add clippy rustfmt
+          cargo install --locked cargo-cranky@0.3.0
+      - name: Build the web UI
+        run: |
+          cd warpgate-web
+          npm ci
+          npm run build
+      - name: Format
+        continue-on-error: true
+        run: cargo fmt --all --check 2>&1 | tee evidence/fmt.log; exit ${PIPESTATUS[0]}
+      - name: Lint (all features, as just clippy)
+        continue-on-error: true
+        run: cargo cranky --workspace --all-features 2>&1 | tee evidence/cranky.log; exit ${PIPESTATUS[0]}
+      - name: Tests per crate (all features, as just test)
+        continue-on-error: true
+        run: |
+          rc=0
+          for p in $(grep '^projects' justfile | sed 's/.*"\(.*\)".*/\1/'); do
+            echo "=== $p"
+            cargo test --all-features -p "$p" --no-fail-fast 2>&1 | tee "evidence/test-$p.log" || true
+            [ "${PIPESTATUS[0]}" = 0 ] || { echo "FAILED crate $p" | tee -a evidence/test-failed.txt; rc=1; }
+          done
+          exit $rc
+      - name: SQLite path fuzz
+        continue-on-error: true
+        run: cargo test --all-features -p warpgate-core --lib pr1_fuzz -- --nocapture 2>&1 | tee evidence/fuzz.log; exit ${PIPESTATUS[0]}
+      - name: Build warpgate.exe
+        run: cargo build -p warpgate --all-features 2>&1 | tee evidence/build.log; exit ${PIPESTATUS[0]}
+      - name: Install, run and use it
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          python -m pip install --quiet paramiko==4.0.0 requests==2.32.5
+          python .github/pr1/e2e.py target/debug/warpgate.exe evidence 2>&1 | Tee-Object evidence/e2e.log
+          exit $LASTEXITCODE
+      - name: Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-evidence
+          path: evidence/
+
+  linux-fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: SQLite path fuzz
+        run: |
+          rustup show active-toolchain || rustup toolchain install
+          mkdir -p warpgate-web/dist
+          cargo test --features sqlite -p warpgate-core --lib pr1_fuzz -- --nocapture 2>&1 | tail -40
