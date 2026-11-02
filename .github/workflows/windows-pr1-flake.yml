@@ -15,8 +15,7 @@ env:
   T: cluster::tests::registered_peer_matches_live_pins_of_other_nodes_only
 
 jobs:
-  windows-pr1:
-    if: false # already running in the first run on this branch
+  windows-no-b-loop:
     runs-on: windows-2025
     timeout-minutes: 120
     env:
@@ -28,6 +27,11 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - name: Test only, no heartbeat loop for node b
+        run: |
+          sed -i '/fn registered_peer_matches_live_pins/,/^    }$/ s/b\.start()\.await\.unwrap();/b.heartbeat().await.unwrap();/' warpgate-core/src/cluster.rs
+          git diff --stat -- warpgate-core/src/cluster.rs
+          git diff -U0 -- warpgate-core/src/cluster.rs | grep -E '^[-+] '
       - run: .github/pr1/flake.sh
   linux-upstream-main:
     runs-on: ubuntu-24.04

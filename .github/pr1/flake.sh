@@ -5,7 +5,8 @@ rustup show active-toolchain || rustup toolchain install
 mkdir -p warpgate-web/dist
 cargo test --features sqlite -p warpgate-core --lib --no-run > build.log 2>&1 || { tail -30 build.log; exit 2; }
 EXE=$(grep -oE 'target[/\]debug[/\]deps[/\]warpgate_core-[0-9a-f]+(\.exe)?' build.log | tail -1)
-EXE=${EXE//\//}
+EXE=$(printf '%s' "$EXE" | tr '\\' '/')
+[ -x "./$EXE" ] || { echo "no test binary: $EXE"; exit 2; }
 echo "code: $(git rev-parse --short HEAD) exe: $EXE"
 worker() {
   local fails=0 runs=0
