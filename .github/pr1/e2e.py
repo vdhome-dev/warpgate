@@ -123,6 +123,9 @@ def sshd_up():
     if r.returncode:
         return r.stderr[-300:]
     r = subprocess.run(["net", "user", "wge2e", TARGET_PASSWORD, "/add", "/Y"], capture_output=True, text=True)
+    if r.returncode:
+        return r.stderr[-300:]
+    r = subprocess.run(["net", "localgroup", "OpenSSH Users", "wge2e", "/add"], capture_output=True, text=True)
     return None if r.returncode == 0 else r.stderr[-300:]
 
 

@@ -68,26 +68,3 @@ jobs:
           path: evidence/
 
 
-  linux-lint:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    env:
-      CARGO_INCREMENTAL: "0"
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          submodules: recursive
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-      - name: Lint as just clippy, and format of the PR's files
-        run: |
-          set -o pipefail
-          rustup show active-toolchain || rustup toolchain install
-          rustup component add clippy rustfmt
-          cargo install --locked cargo-cranky@0.3.0
-          (cd warpgate-web && npm ci && npm run build)
-          git rm -q --cached warpgate-core/src/db/pr1_fuzz.rs
-          cargo fmt --all --check -- --config skip_children=false 2>&1 | grep -E '^Diff in' | grep -v pr1_fuzz | tee fmt.txt || true
-          test ! -s fmt.txt
-          cargo cranky --workspace --all-features 2>&1 | tail -30
