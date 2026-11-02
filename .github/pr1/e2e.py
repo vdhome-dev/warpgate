@@ -157,7 +157,8 @@ def ssh_through(http, ssh):
 
     api = f"https://127.0.0.1:{http}/@warpgate/admin/api"
     s, _ = session(http)
-    r = s.post(f"{api}/targets", timeout=20, json={"name": "win", "options": {
+    r = s.post(f"{api}/targets", timeout=20, json={"name": "win", "ticket_requests_disabled": False, "ticket_require_approval": False,
+                                                     "require_approval": False, "options": {
         "kind": "Ssh", "host": "127.0.0.1", "port": 22, "username": "wge2e", "allow_insecure_algos": False,
         "auth": {"kind": "Password", "password": TARGET_PASSWORD}}})
     if not check("create the SSH target", r.status_code == 201, f"{r.status_code} {r.text[:300]}"):
@@ -182,7 +183,7 @@ def ssh_through(http, ssh):
     time.sleep(8)
     items = s.get(f"{api}/sessions", params={"active_only": "true"}, timeout=20).json()
     items = items["items"] if isinstance(items, dict) else items
-    live = [x for x in items if not x.get("ended")]
+    live = [x for x in items if not x.get("ended") and x.get("protocol", "").upper() == "SSH"]  # not this API login
     if not check("the stalled session is listed as live", len(live) >= 1, items):
         return
     for x in live:
