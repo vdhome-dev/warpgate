@@ -420,3 +420,6 @@ mod tests {
         std::fs::remove_dir_all(&base).unwrap();
     }
 }
+
+#[cfg(all(test, feature = "sqlite"))]
+mod pr1_fuzz;
